@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Data Table Example</title>
+    <link rel="stylesheet" type="text/css"
+      href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+  </head>
+  <body>
+
+    <table id="dataTable" class="display">
+      <thead>
+        <tr>
+          <th></th>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Action</th>
+          <!-- Add more table headers based on your API response -->
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+
+    <script>
+ 
+  const table = $('#dataTable').DataTable({
+    ajax: {
+      url: '/api/data',
+      dataSrc: ''
+    },
+    rowId:'id',
+    columns: [
+    {
+      data : null,  
+      render : (data, type, row)=>{
+        return `<input type='checkbox'/>`
+      } 
+         },
+      { data: 'id' },
+      { data: 'name' },
+      { data: 'email' },
+      { data: 'role' },
+      {
+        data : null,  
+        render : (data, type, row)=>{
+          return `<div id="actions_${row.id}"><button onClick = "editRow(${row.id})">Edit</button><button onClick = "deleteRow(${row.id})">Delete</button></div>`
+        }
+      }
+    ]
+  });
+
+
+  //const editButton = `<button onClick = "editRow(${row.id})">Edit</button><button onClick = "deleteRow(${row.id})">Delete</button>`;
+  // Function to handle checkbox change event
+$('#dataTable tbody').on('change', 'input[type="checkbox"]', function() {
+  const row = table.row($(this).closest('tr'));
+  const rowData = row.data();
+
+  if ($(this).is(':checked')) {
+    editRow(rowData.id);
+  } else {
+    // Handle the case when the checkbox is unchecked
+    // Revert changes made during edit mode
+
+    // Get the original data of the row before edits (assuming it's stored somewhere)
+    const originalData = {
+      id: rowData.id,
+      name: rowData.name, // Replace with original values
+      email: rowData.email,
+      role: rowData.role
+      // Add other fields and their original values as needed
+    };
+
+    // Revert the row data to its original state
+    row.data(rowData).draw();
+
+    // Exit edit mode or perform other necessary actions
+    const editButton = `<button onClick="editRow(${rowData.id})">Edit</button>`;
+    table.cell({ row: row.index(), column: 5 }).data(editButton).draw();
+
+    editMode = false; // Set edit mode flag to false
+  }
+});
+
+// Function to edit a row by ID
+const editRow = (id) => {
+  const row = table.row(`[id=${id}]`);
+  const rowData = row.data();
+  const saveButton = `<button onClick="saveRow(${id})">Save</button>`;
+  
+  table.cell({ row: row.index(), column: 5 }).data(saveButton).draw();
+
+  row.data({
+    id: rowData.id,
+    name: `<input type="text" id="editedName_${id}" value="${rowData.name}">`,
+    email: `<input type="text" id="editedEmail_${id}" value="${rowData.email}">`,
+    role: `<input type="text" id="editedRole_${id}" value="${rowData.role}">`,
+    action: `fsdafjs`
+  }).draw();
+
+  // Set a flag or perform other actions to indicate edit mode
+  editMode = true;
+};
+
+// Function to handle saving changes for an edited row
+const saveRow = (id) => {
+  // Retrieve the edited values from the input fields or perform other necessary actions
+  const editedName = $(`#editedName_${id}`).val();
+  const editedEmail = $(`#editedEmail_${id}`).val();
+  const editedRole = $(`#editedRole_${id}`).val();
+
+  // Prepare data to be sent to the server
+  const newData = {
+    id: id,
+    name: editedName,
+    email: editedEmail,
+    role: editedRole
+    // Add more fields as needed based on your API structure
+  };
+
+  // Make an AJAX call to update the row data on the server
+  $.ajax({
+    url: '/api/update', // Replace with your API endpoint for updating data
+    method: 'PUT', // Use appropriate HTTP method (PUT, POST, PATCH, etc.)
+    data: newData,
+    success: function(response) {
+      // Update the row in the DataTable with the new values
+      const row = table.row(`[id=${id}]`);
+      row.data(response).draw(); // Assuming the response contains updated data
+      alert(`Changes saved for row ${id}`);
+    },
+    error: function(xhr, status, error) {
+      console.error('Error saving row changes:', error);
+      // Handle error scenarios here
+    }
+  });
+
+  // Exit edit mode or perform other necessary actions
+  const editButton = `<button onClick="editRow(${id})">Edit</button>`;
+  table.cell({ row: table.row(`[id=${id}]`).index(), column: 5 }).data(editButton).draw();
+
+  editMode = false; // Set edit mode flag to false
+};
+
+
+
+
+// Function to handle checkbox change event
+$('#dataTable tbody').on('change', 'input[type="checkbox"]', function(){
+  const row = table.row($(this).closest('tr'));
+  const checkbox = $(this);
+
+  // Toggle row selection class based on checkbox state
+  if (checkbox.is(':checked')) {
+    row.nodes().to$().addClass('selected');
+  } else {
+    row.nodes().to$().removeClass('selected');
+  }
+});
+
+// Function to handle delete button click event
+$('#deleteButton').on('click', function() {
+  const selectedRows = table.rows('.selected').data();
+
+  selectedRows.each(function(rowData) {
+    deleteRow(rowData.id);
+    table.row($(this.node())).remove().draw(false);
+  });
+
+  // Clear checkbox selections after deletion
+  $('input[type="checkbox"]').prop('checked', false);
+});
+
+// Function to delete a row by ID
+const deleteRow = (rowId) => {
+  // Perform deletion logic - AJAX call to delete row by ID
+  $.ajax({
+    url: '/api/delete',
+    method: 'POST',
+    data: { id: rowId },
+    success: function(response) {
+      console.log(`Row with ID ${rowId} deleted successfully.`);
+    },
+    error: function(xhr, status, error) {
+      console.error('Error deleting row:', error);
+    }
+  });
+};
+
+
+</script>
+
+  </body>
+</html>
